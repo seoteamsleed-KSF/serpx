@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 function format(v, type) {
-  if (!v) return 'N/A';
+  if (v === null || v === undefined) return 'N/A';
 
   if (type === 'lcp') return (v / 1000).toFixed(2) + 's';
   if (type === 'cls') return v.toFixed(3);
@@ -10,7 +10,7 @@ function format(v, type) {
 }
 
 function getColor(type, v) {
-  if (!v) return '#888';
+  if (v === null || v === undefined) return '#888';
 
   if (type === 'lcp') {
     if (v <= 2500) return '#00d4aa';
@@ -31,23 +31,38 @@ function getColor(type, v) {
   }
 }
 
+function getDomain(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return 'N/A';
+  }
+}
+
 export default function Home() {
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
 
   async function analyze() {
+    if (!keyword) return;
+
     setLoading(true);
     setResults([]);
 
-    const res = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword })
-    });
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword })
+      });
 
-    const data = await res.json();
-    setResults(data.results || []);
+      const data = await res.json();
+      setResults(data.results || []);
+    } catch (e) {
+      console.error(e);
+    }
+
     setLoading(false);
   }
 
@@ -100,7 +115,8 @@ export default function Home() {
             {results.map((r, i) => (
               <tr key={i}>
                 <td>{r.position}</td>
-                <td>{new URL(r.url).hostname}</td>
+
+                <td>{getDomain(r.url)}</td>
 
                 <td>
                   <a href={r.url} target="_blank" style={{ color: '#7c6aff' }}>
