@@ -1,15 +1,13 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { keyword } = req.body || {};
-  if (!keyword) return res.status(400).json({ error: 'keyword required' });
+  const { keyword } = req.body;
 
   const SERPER_KEY = process.env.SERPER_API_KEY;
   const CRUX_KEY = process.env.CRUX_API_KEY;
   const PSI_KEY = process.env.PSI_API_KEY;
 
   try {
-    // 1️⃣ SERP
     const serpRes = await fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: {
@@ -24,9 +22,11 @@ export default async function handler(req, res) {
     const results = await Promise.all(
       (serp.organic || []).map(async (r, i) => {
 
-        let lcp, inp, cls;
+        let lcp = null;
+        let inp = null;
+        let cls = null;
 
-        // 2️⃣ CRUX
+        // 🔹 CRUX (REAL DATA)
         try {
           const crux = await fetch(
             `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
@@ -35,12 +35,7 @@ export default async function handler(req, res) {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 url: r.link,
-                formFactor: "PHONE",
-                metrics: [
-                  "largest_contentful_paint",
-                  "interaction_to_next_paint",
-                  "cumulative_layout_shift"
-                ]
+                formFactor: "PHONE"
               })
             }
           );
@@ -48,34 +43,38 @@ export default async function handler(req, res) {
           const data = await crux.json();
           const m = data.record?.metrics || {};
 
-          lcp = m.largest_contentful_paint?.percentiles?.p75;
-          inp = m.interaction_to_next_paint?.percentiles?.p75;
-          cls = m.cumulative_layout_shift?.percentiles?.p75;
+          lcp = m.largest_contentful_paint?.percentiles?.p75 || null;
+          inp = m.interaction_to_next_paint?.percentiles?.p75 || null;
+          cls = m.cumulative_layout_shift?.percentiles?.p75 || null;
 
         } catch {}
 
-        // 3️⃣ FALLBACK CLS (PSI)
-        if (!cls && PSI_KEY) {
-          try {
-            const psi = await fetch(
-              `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
-            );
+        // 🔥 ALWAYS fallback PSI (όχι μόνο αν cls null)
+        try {
+          const psi = await fetch(
+            `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
+          );
 
-            const psiData = await psi.json();
+          const psiData = await psi.json();
 
-            const labCLS =
-              psiData.lighthouseResult?.audits?.['cumulative-layout-shift']?.numericValue;
+          const audits = psiData.lighthouseResult?.audits || {};
 
-            if (labCLS) cls = labCLS;
+          if (!lcp)
+            lcp = audits['largest-contentful-paint']?.numericValue || null;
 
-          } catch {}
-        }
+          if (!inp)
+            inp = audits['interactive']?.numericValue || null;
+
+          if (!cls)
+            cls = audits['cumulative-layout-shift']?.numericValue || null;
+
+        } catch {}
 
         return {
           position: i + 1,
           url: r.link,
           title: r.title,
-          domain_rating: 0,
+          domain_rating: "-",
           lcp,
           inp,
           cls
@@ -83,9 +82,9 @@ export default async function handler(req, res) {
       })
     );
 
-    return res.status(200).json({ results });
+    res.status(200).json({ results });
 
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.message });
   }
 }
