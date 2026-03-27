@@ -1,5 +1,16 @@
 import { useState } from 'react';
 
+<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+  
+  <h1>SLEED SEO: SERP Analyzer</h1>
+
+  <img 
+    src="https://app.linq.co/_next/image?url=https%3A%2F%2Fcollege-link-bucket.fra1.digitaloceanspaces.com%2Femployer%2Fuploads%2Fimages%2Fcompany_profile%2FSEDPQUtrCt20.png&w=3840&q=75"
+    style={{ height: 40 }}
+  />
+
+</div>
+
 function format(v, type) {
   if (typeof v !== 'number') return 'N/A';
   if (type === 'lcp') return (v / 1000).toFixed(2) + 's';
