@@ -8,15 +8,21 @@ const T = {
 };
 
 function cwvInfo(m, v) {
-  if (v == null) return { label: 'N/A', color: '#888', bg: '#f0f0f0' };
+  if (typeof v !== 'number') {
+    return { label: 'N/A', color: '#888', bg: '#f0f0f0' };
+  }
+
   const good = v <= T[m].good;
   const poor = v > T[m].poor;
-  const label =
-    m === 'cls'
-      ? v.toFixed(3)
-      : m === 'lcp'
-      ? (v / 1000).toFixed(2) + 's'
-      : v + 'ms';
+
+  let label;
+  if (m === 'cls') {
+    label = Number(v).toFixed(3);
+  } else if (m === 'lcp') {
+    label = (v / 1000).toFixed(2) + 's';
+  } else {
+    label = Math.round(v) + 'ms';
+  }
 
   if (good) return { label, color: '#085041', bg: '#e1f5ee' };
   if (poor) return { label, color: '#501313', bg: '#fdecea' };
