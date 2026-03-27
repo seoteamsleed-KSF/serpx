@@ -11,16 +11,19 @@ export default async function handler(req, res) {
   if (!CRUX_KEY) return res.status(500).json({ error: 'CRUX_API_KEY not configured' });
 
   try {
-    // 1. Ahrefs SERP
+    // 1. Ahrefs SERP — GET with query params
     const url = new URL('https://api.ahrefs.com/v3/serp-overview');
     url.searchParams.set('keyword', keyword.trim());
     url.searchParams.set('country', 'gr');
     url.searchParams.set('select', 'position,url,title,domain_rating,refdomains');
     url.searchParams.set('top_positions', '10');
-    url.searchParams.set('output', 'json');
 
     const ahrefsRes = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${AHREFS_KEY}` }
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${AHREFS_KEY}`,
+        'Accept': 'application/json'
+      }
     });
 
     if (!ahrefsRes.ok) {
@@ -28,7 +31,8 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: `Ahrefs: ${ahrefsRes.status} — ${txt}` });
     }
 
-    const { positions = [] } = await ahrefsRes.json();
+    const ahrefsData = await ahrefsRes.json();
+    const positions = ahrefsData.positions || [];
     if (!positions.length) return res.status(200).json({ keyword, results: [] });
 
     // 2. CrUX — all parallel
