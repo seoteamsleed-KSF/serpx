@@ -3,30 +3,34 @@ import { useState } from 'react';
 function format(v, type) {
   if (v === null || v === undefined) return 'N/A';
 
-  if (type === 'lcp') return (v / 1000).toFixed(2) + 's';
-  if (type === 'cls') return v.toFixed(3);
+  const num = Number(v);
+  if (isNaN(num)) return 'N/A';
 
-  return Math.round(v) + 'ms';
+  if (type === 'lcp') return (num / 1000).toFixed(2) + 's';
+  if (type === 'cls') return num.toFixed(3);
+
+  return Math.round(num) + 'ms';
 }
 
 function getColor(type, v) {
-  if (v === null || v === undefined) return '#888';
+  const num = Number(v);
+  if (isNaN(num)) return '#888';
 
   if (type === 'lcp') {
-    if (v <= 2500) return '#00d4aa';
-    if (v <= 4000) return '#ffaa00';
+    if (num <= 2500) return '#00d4aa';
+    if (num <= 4000) return '#ffaa00';
     return '#ff4d6d';
   }
 
   if (type === 'inp') {
-    if (v <= 200) return '#00d4aa';
-    if (v <= 500) return '#ffaa00';
+    if (num <= 200) return '#00d4aa';
+    if (num <= 500) return '#ffaa00';
     return '#ff4d6d';
   }
 
   if (type === 'cls') {
-    if (v <= 0.1) return '#00d4aa';
-    if (v <= 0.25) return '#ffaa00';
+    if (num <= 0.1) return '#00d4aa';
+    if (num <= 0.25) return '#ffaa00';
     return '#ff4d6d';
   }
 }
@@ -115,7 +119,6 @@ export default function Home() {
             {results.map((r, i) => (
               <tr key={i}>
                 <td>{r.position}</td>
-
                 <td>{getDomain(r.url)}</td>
 
                 <td>
