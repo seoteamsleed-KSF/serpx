@@ -1,8 +1,7 @@
 import { useState } from 'react';
 
-function cwv(v, type) {
+function format(v, type) {
   if (typeof v !== 'number') return 'N/A';
-
   if (type === 'lcp') return (v / 1000).toFixed(2) + 's';
   if (type === 'cls') return v.toFixed(3);
   return Math.round(v) + 'ms';
@@ -11,16 +10,28 @@ function cwv(v, type) {
 export default function Home() {
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   async function analyze() {
-    const res = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword })
-    });
+    if (!keyword.trim()) return;
 
-    const data = await res.json();
-    setResults(data.results || []);
+    setLoading(true);
+    setResults([]);
+
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword })
+      });
+
+      const data = await res.json();
+      setResults(data.results || []);
+    } catch (e) {
+      console.error(e);
+    }
+
+    setLoading(false);
   }
 
   return (
@@ -40,41 +51,48 @@ export default function Home() {
         </button>
       </div>
 
-      <table style={{ width: '100%', textAlign: 'center', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Domain</th>
-            <th>URL</th>
-            <th>Title</th>
-            <th>DR</th>
-            <th>LCP</th>
-            <th>INP</th>
-            <th>CLS</th>
-          </tr>
-        </thead>
+      {loading && <div>Loading results...</div>}
 
-        <tbody>
-          {results.map((r, i) => (
-            <tr key={i} style={{ borderBottom: '1px solid #222' }}>
-              <td>{r.position}</td>
-              <td>{new URL(r.url).hostname}</td>
-
-              <td>
-                <a href={r.url} target="_blank" style={{ color: '#7c6aff' }}>
-                  link
-                </a>
-              </td>
-
-              <td>{r.title}</td>
-              <td>{r.domain_rating}</td>
-              <td>{cwv(r.lcp, 'lcp')}</td>
-              <td>{cwv(r.inp, 'inp')}</td>
-              <td>{cwv(r.cls, 'cls')}</td>
+      {!loading && results.length > 0 && (
+        <table style={{ width: '100%', textAlign: 'center', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Domain</th>
+              <th>URL</th>
+              <th>Title</th>
+              <th>DR</th>
+              <th>LCP</th>
+              <th>INP</th>
+              <th>CLS</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {results.map((r, i) => (
+              <tr key={i} style={{ borderBottom: '1px solid #222' }}>
+                <td>{r.position}</td>
+
+                <td>{new URL(r.url).hostname}</td>
+
+                <td>
+                  <a href={r.url} target="_blank" style={{ color: '#7c6aff' }}>
+                    link
+                  </a>
+                </td>
+
+                <td>{r.title}</td>
+
+                <td>{r.domain_rating}</td>
+
+                <td>{format(r.lcp, 'lcp')}</td>
+                <td>{format(r.inp, 'inp')}</td>
+                <td>{format(r.cls, 'cls')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
