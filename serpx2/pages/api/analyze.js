@@ -26,17 +26,14 @@ export default async function handler(req, res) {
         let inp = null;
         let cls = null;
 
-        // 🔹 CRUX (real data)
+        // CRUX
         try {
           const crux = await fetch(
             `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                url: r.link,
-                formFactor: "PHONE"
-              })
+              body: JSON.stringify({ url: r.link, formFactor: "PHONE" })
             }
           );
 
@@ -49,7 +46,7 @@ export default async function handler(req, res) {
 
         } catch {}
 
-        // 🔥 PSI fallback (πάντα)
+        // PSI fallback
         try {
           const psi = await fetch(
             `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
@@ -68,6 +65,15 @@ export default async function handler(req, res) {
             cls = audits['cumulative-layout-shift']?.numericValue ?? null;
 
         } catch {}
+
+        // 🔥 SAFE NUMBERS
+        lcp = Number(lcp);
+        inp = Number(inp);
+        cls = Number(cls);
+
+        if (isNaN(lcp)) lcp = null;
+        if (isNaN(inp)) inp = null;
+        if (isNaN(cls)) cls = null;
 
         return {
           position: i + 1,
