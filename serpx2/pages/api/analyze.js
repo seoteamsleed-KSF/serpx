@@ -49,7 +49,16 @@ export default async function handler(req, res) {
     if (!positions.length) {
       return res.status(200).json({ keyword, results: [] });
     }
+async function getDA(domain) {
+  try {
+    const res = await fetch(`https://api.allorigins.win/raw?url=https://api.seoreviewtools.com/website-authority-checker/?domain=${domain}`);
+    const data = await res.json();
 
+    return data?.domain_authority || 0;
+  } catch {
+    return 0;
+  }
+}
     // ✅ 2. CrUX (Core Web Vitals)
     const cruxData = await Promise.all(
       positions.map(async (p) => {
