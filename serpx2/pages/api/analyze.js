@@ -76,7 +76,7 @@ export default async function handler(req, res) {
         if (isNaN(inp)) inp = null;
         if (isNaN(cls)) cls = null;
 
-        // ✅ SIMILARWEB (FIXED DOMAIN + SAFE)
+        // 🔥 SIMILARWEB
         let traffic = "-";
         let keywords = "-";
 
@@ -84,8 +84,8 @@ export default async function handler(req, res) {
           const domain = new URL(r.link).hostname.replace('www.', '');
           const sw = await getSimilarwebData(domain);
 
-          traffic = sw.traffic || "-";
-          keywords = sw.keywords || "-";
+          traffic = sw.traffic;
+          keywords = sw.keywords;
         } catch {}
 
         return {
