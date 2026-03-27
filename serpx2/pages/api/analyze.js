@@ -21,82 +21,92 @@ export default async function handler(req, res) {
 
     const serp = await serpRes.json();
 
-    const results = await Promise.all(
-      (serp.organic || []).map(async (r, i) => {
+    const results = [];
 
-        let lcp = null;
-        let inp = null;
-        let cls = null;
+    for (let i = 0; i < (serp.organic || []).length; i++) {
+      const r = serp.organic[i];
 
-        // CRUX
-        try {
-          const crux = await fetch(
-            `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ url: r.link, formFactor: "PHONE" })
-            }
-          );
+      let lcp = null;
+      let inp = null;
+      let cls = null;
 
-          const data = await crux.json();
-          const m = data.record?.metrics || {};
+      // CRUX
+      try {
+        const crux = await fetch(
+          `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: r.link, formFactor: "PHONE" })
+          }
+        );
 
-          lcp = m.largest_contentful_paint?.percentiles?.p75 ?? null;
-          inp = m.interaction_to_next_paint?.percentiles?.p75 ?? null;
-          cls = m.cumulative_layout_shift?.percentiles?.p75 ?? null;
+        const data = await crux.json();
+        const m = data.record?.metrics || {};
 
-        } catch {}
+        lcp = m.largest_contentful_paint?.percentiles?.p75 ?? null;
+        inp = m.interaction_to_next_paint?.percentiles?.p75 ?? null;
+        cls = m.cumulative_layout_shift?.percentiles?.p75 ?? null;
 
-        // PSI fallback
-        try {
-          const psi = await fetch(
-            `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
-          );
+      } catch {}
 
-          const psiData = await psi.json();
-          const audits = psiData.lighthouseResult?.audits || {};
+      // PSI fallback
+      try {
+        const psi = await fetch(
+          `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
+        );
 
-          if (lcp === null)
-            lcp = audits['largest-contentful-paint']?.numericValue ?? null;
+        const psiData = await psi.json();
+        const audits = psiData.lighthouseResult?.audits || {};
 
-          if (inp === null)
-            inp = audits['interactive']?.numericValue ?? null;
+        if (lcp === null)
+          lcp = audits['largest-contentful-paint']?.numericValue ?? null;
 
-          if (cls === null)
-            cls = audits['cumulative-layout-shift']?.numericValue ?? null;
+        if (inp === null)
+          inp = audits['interactive']?.numericValue ?? null;
 
-        } catch {}
+        if (cls === null)
+          cls = audits['cumulative-layout-shift']?.numericValue ?? null;
 
-        // SAFE NUMBERS
-        lcp = Number(lcp);
-        inp = Number(inp);
-        cls = Number(cls);
+      } catch {}
 
-        if (isNaN(lcp)) lcp = null;
-        if (isNaN(inp)) inp = null;
-        if (isNaN(cls)) cls = null;
+      // SAFE NUMBERS
+      lcp = Number(lcp);
+      inp = Number(inp);
+      cls = Number(cls);
 
-        // 🔥 AHREFS DATA
-        const domain = new URL(r.link).hostname.replace('www.', '')
-        const ahrefs = await getAhrefsData(domain)
+      if (isNaN(lcp)) lcp = null;
+      if (isNaN(inp)) inp = null;
+      if (isNaN(cls)) cls = null;
 
-        await new Promise(r => setTimeout(r, 700))
+      // 🔥 AHREFS SAFE (no crash)
+      let dr = "-";
+      let traffic = "-";
+      let keywords = "-";
 
-        return {
-          position: i + 1,
-          url: r.link,
-          title: r.title,
-          domain,
-          dr: ahrefs.dr,
-          traffic: ahrefs.traffic,
-          keywords: ahrefs.keywords,
-          lcp,
-          inp,
-          cls
-        };
-      })
-    );
+      try {
+        const domain = new URL(r.link).hostname.replace('www.', '');
+        const ahrefs = await getAhrefsData(domain);
+
+        dr = ahrefs.dr;
+        traffic = ahrefs.traffic;
+        keywords = ahrefs.keywords;
+
+        await new Promise(r => setTimeout(r, 500));
+      } catch {}
+
+      results.push({
+        position: i + 1,
+        url: r.link,
+        title: r.title,
+        dr,
+        traffic,
+        keywords,
+        lcp,
+        inp,
+        cls
+      });
+    }
 
     res.status(200).json({ results });
 
