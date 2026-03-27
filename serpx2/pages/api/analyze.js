@@ -46,7 +46,7 @@ export default async function handler(req, res) {
         let inp = null
         let cls = null
 
-        // 🔵 CRUX (όπως πριν)
+        // ✅ CRUX (όπως πριν που δούλευε)
         try {
           const crux = await fetchWithTimeout(
             `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
 
         } catch {}
 
-        // 🟢 PSI fallback ΜΟΝΟ αν λείπει
+        // ✅ PSI fallback (όπως πριν)
         try {
           const psi = await fetchWithTimeout(
             `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
@@ -86,10 +86,18 @@ export default async function handler(req, res) {
 
         } catch {}
 
-        // FORMAT (όπως πριν δούλευε)
+        // 🔥 FIX NaN + FORMAT (ΤΟ PROBLEM ΗΤΑΝ ΕΔΩ)
+        lcp = Number(lcp)
+        inp = Number(inp)
+        cls = Number(cls)
+
+        if (isNaN(lcp)) lcp = null
+        if (isNaN(inp)) inp = null
+        if (isNaN(cls)) cls = null
+
         lcp = lcp ? (lcp / 1000).toFixed(2) + 's' : "-"
         inp = inp ? Math.round(inp) + 'ms' : "-"
-        cls = cls !== null ? Number(cls).toFixed(2) : "-"
+        cls = cls !== null ? cls.toFixed(2) : "-"
 
         return {
           position: i + 1,
