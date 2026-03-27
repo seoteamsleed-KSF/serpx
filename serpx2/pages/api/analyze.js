@@ -46,7 +46,7 @@ export default async function handler(req, res) {
         let inp = null
         let cls = null
 
-        // ✅ CRUX (όπως πριν που δούλευε)
+        // ✅ CRUX
         try {
           const crux = await fetchWithTimeout(
             `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
 
         } catch {}
 
-        // ✅ PSI fallback (όπως πριν)
+        // ✅ PSI fallback
         try {
           const psi = await fetchWithTimeout(
             `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
@@ -75,30 +75,42 @@ export default async function handler(req, res) {
           const psiData = await psi?.json()
           const audits = psiData?.lighthouseResult?.audits || {}
 
-          if (!lcp)
+          if (lcp === null)
             lcp = audits['largest-contentful-paint']?.numericValue ?? null
 
-          if (!inp)
-            inp = audits['interactive']?.numericValue ?? null
+          if (inp === null)
+            inp = audits['interaction-to-next-paint']?.numericValue ?? null
 
-          if (!cls)
+          if (cls === null)
             cls = audits['cumulative-layout-shift']?.numericValue ?? null
 
         } catch {}
 
-        // 🔥 SAFE NUMBERS (ΑΥΤΟ ΗΤΑΝ ΤΟ WORKING PART)
-        lcp = Number(lcp)
-        inp = Number(inp)
-        cls = Number(cls)
+        // 🔥 FINAL SAFE FORMAT (ΔΕΝ ΞΑΝΑΚΑΝΕΙ BUG)
 
-        if (isNaN(lcp)) lcp = null
-        if (isNaN(inp)) inp = null
-        if (isNaN(cls)) cls = null
+        // LCP
+        if (typeof lcp === 'string') lcp = parseFloat(lcp)
+        if (lcp !== null && !isNaN(lcp)) {
+          lcp = (lcp / 1000).toFixed(2) + 's'
+        } else {
+          lcp = "-"
+        }
 
-        // ✅ FORMAT (1 φορά μόνο)
-        lcp = lcp ? (lcp / 1000).toFixed(2) + 's' : "-"
-        inp = inp ? Math.round(inp) + 'ms' : "-"
-        cls = cls !== null ? cls.toFixed(2) : "-"
+        // INP
+        if (typeof inp === 'string') inp = parseFloat(inp)
+        if (inp !== null && !isNaN(inp)) {
+          inp = Math.round(inp) + 'ms'
+        } else {
+          inp = "-"
+        }
+
+        // CLS
+        if (typeof cls === 'string') cls = parseFloat(cls)
+        if (cls !== null && !isNaN(cls)) {
+          cls = Number(cls).toFixed(2)
+        } else {
+          cls = "-"
+        }
 
         return {
           position: i + 1,
