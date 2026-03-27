@@ -3,26 +3,23 @@ export async function getSimilarwebData(domain) {
 
   try {
     const res = await fetch(
-      `https://api.similarweb.com/v1/website/${domain}/total-traffic-and-engagement/visits?api_key=${API_KEY}&start_date=2024-01&end_date=2024-01&granularity=monthly`
+      `https://api.similarweb.com/v1/website/${domain}/traffic-and-engagement/visits?api_key=${API_KEY}&start_date=2024-01&end_date=2024-01&granularity=monthly&country=ww`
     );
 
     const data = await res.json();
 
-    const visits = data.visits?.[0]?.visits || null;
+    // DEBUG (θα δεις αν έρχεται data)
+    console.log("SW:", domain, data);
 
-    // 🔥 FAKE KEYWORDS (για να μην έχεις -)
-    let keywords = "-";
-
-    if (visits) {
-      keywords = Math.round(visits / 10); // simple estimate
-    }
+    const visits = data.visits?.[0]?.visits;
 
     return {
       traffic: visits || "-",
-      keywords
+      keywords: visits ? Math.round(visits / 8) : "-"
     };
 
-  } catch {
+  } catch (e) {
+    console.log("SW ERROR:", e);
     return {
       traffic: "-",
       keywords: "-"
