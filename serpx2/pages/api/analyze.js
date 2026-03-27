@@ -9,15 +9,11 @@ export default async function handler(req, res) {
   const SERPER_KEY = process.env.SERPER_API_KEY;
   const CRUX_KEY = process.env.CRUX_API_KEY;
 
-  if (!SERPER_KEY) {
-    return res.status(500).json({ error: 'SERPER_API_KEY not configured' });
-  }
-  if (!CRUX_KEY) {
-    return res.status(500).json({ error: 'CRUX_API_KEY not configured' });
-  }
+  if (!SERPER_KEY) return res.status(500).json({ error: 'SERPER_API_KEY missing' });
+  if (!CRUX_KEY) return res.status(500).json({ error: 'CRUX_API_KEY missing' });
 
   try {
-    // ✅ 1. SERPER (Google results)
+    // ✅ SERPER
     const serpRes = await fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: {
@@ -25,41 +21,43 @@ export default async function handler(req, res) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        q: keyword.trim(),
+        q: keyword,
         gl: "gr",
         num: 10
       })
     });
 
-    if (!serpRes.ok) {
-      const txt = await serpRes.text();
-      return res.status(502).json({ error: `Serper: ${serpRes.status} — ${txt}` });
-    }
-
     const serpData = await serpRes.json();
 
-    const positions = (serpData.organic || []).map((r, i) => ({
-      position: i + 1,
-      url: r.link,
-      title: r.title,
-      domain_rating: 0,
-      refdomains: 0
-    }));
-
-    if (!positions.length) {
-      return res.status(200).json({ keyword, results: [] });
+    // ✅ FREE DR (Moz-style proxy)
+    async function getDA(domain) {
+      try {
+        const r = await fetch(`https://api.allorigins.win/raw?url=https://api.seoreviewtools.com/website-authority-checker/?domain=${domain}`);
+        const d = await r.json();
+        return d?.domain_authority || 0;
+      } catch {
+        return 0;
+      }
     }
-async function getDA(domain) {
-  try {
-    const res = await fetch(`https://api.allorigins.win/raw?url=https://api.seoreviewtools.com/website-authority-checker/?domain=${domain}`);
-    const data = await res.json();
 
-    return data?.domain_authority || 0;
-  } catch {
-    return 0;
-  }
-}
-    // ✅ 2. CrUX (Core Web Vitals)
+    // ✅ BUILD RESULTS
+    const positions = await Promise.all(
+      (serpData.organic || []).map(async (r, i) => {
+        const domain = new URL(r.link).hostname.replace("www.", "");
+
+        const da = await getDA(domain);
+
+        return {
+          position: i + 1,
+          url: r.link,
+          title: r.title,
+          domain_rating: da,
+          refdomains: 0
+        };
+      })
+    );
+
+    // ✅ CRUX
     const cruxData = await Promise.all(
       positions.map(async (p) => {
         try {
@@ -80,37 +78,33 @@ async function getDA(domain) {
             }
           );
 
-          if (!r.ok) {
-            return { position: p.position, lcp: null, inp: null, cls: null };
-          }
+          if (!r.ok) return { position: p.position };
 
           const d = await r.json();
           const m = d.record?.metrics || {};
 
           return {
             position: p.position,
-            lcp: m.largest_contentful_paint?.percentiles?.p75 ?? null,
-            inp: m.interaction_to_next_paint?.percentiles?.p75 ?? null,
-            cls: m.cumulative_layout_shift?.percentiles?.p75 ?? null
+            lcp: m.largest_contentful_paint?.percentiles?.p75,
+            inp: m.interaction_to_next_paint?.percentiles?.p75,
+            cls: m.cumulative_layout_shift?.percentiles?.p75
           };
         } catch {
-          return { position: p.position, lcp: null, inp: null, cls: null };
+          return { position: p.position };
         }
       })
     );
 
-    const cruxMap = Object.fromEntries(
-      cruxData.map((c) => [c.position, c])
-    );
+    const cruxMap = Object.fromEntries(cruxData.map(c => [c.position, c]));
 
-    const results = positions.map((p) => ({
+    const results = positions.map(p => ({
       ...p,
-      lcp: cruxMap[p.position]?.lcp ?? null,
-      inp: cruxMap[p.position]?.inp ?? null,
-      cls: cruxMap[p.position]?.cls ?? null
+      lcp: cruxMap[p.position]?.lcp,
+      inp: cruxMap[p.position]?.inp,
+      cls: cruxMap[p.position]?.cls
     }));
 
-    return res.status(200).json({ keyword, results });
+    return res.status(200).json({ results });
 
   } catch (e) {
     return res.status(500).json({ error: e.message });
