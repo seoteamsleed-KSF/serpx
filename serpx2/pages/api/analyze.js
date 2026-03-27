@@ -1,4 +1,5 @@
 import { getAhrefsData } from '../../lib/ahrefs'
+import { getSimilarwebData } from '../../lib/similarweb'
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
