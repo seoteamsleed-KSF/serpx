@@ -10,10 +10,10 @@ export async function getSimilarwebData(domain) {
 
     return {
       traffic: data?.visits?.[0]?.visits ?? "-",
-      keywords: "-" // Similarweb ΔΕΝ δίνει organic keywords εύκολα
+      keywords: "-"
     }
 
-  } catch (e) {
+  } catch {
     return {
       traffic: "-",
       keywords: "-"
