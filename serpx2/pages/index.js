@@ -7,6 +7,7 @@ export default function Home() {
 
   const analyze = async () => {
     setLoading(true);
+    setResults([]);
 
     const res = await fetch('/api/analyze', {
       method: 'POST',
@@ -19,19 +20,31 @@ export default function Home() {
     setLoading(false);
   };
 
+  const formatMs = (ms) => {
+    if (!ms) return '-';
+    return (ms / 1000).toFixed(2) + 's';
+  };
+
+  const color = (value, good, bad) => {
+    if (value === null) return 'white';
+    if (value <= good) return '#00ffcc';
+    if (value >= bad) return '#ff4d4d';
+    return '#ffaa00';
+  };
+
   return (
-    <div style={{ padding: 40, background: '#000', minHeight: '100vh', color: '#fff' }}>
+    <div style={{ background: '#000', color: '#fff', minHeight: '100vh', padding: 30 }}>
       <h1>SLEED SEO: SERP Analyzer</h1>
 
       <input
         value={keyword}
         onChange={(e) => setKeyword(e.target.value)}
+        placeholder="keyword"
         style={{ padding: 10, marginRight: 10 }}
       />
+      <button onClick={analyze}>Analyze</button>
 
-      <button onClick={analyze}>
-        {loading ? 'Loading...' : 'Analyze'}
-      </button>
+      {loading && <p>Loading...</p>}
 
       <table style={{ width: '100%', marginTop: 30 }}>
         <thead>
@@ -40,6 +53,7 @@ export default function Home() {
             <th>Domain</th>
             <th>URL</th>
             <th>Title</th>
+            <th>DR</th>
             <th>Traffic</th>
             <th>Keywords</th>
             <th>LCP</th>
@@ -49,41 +63,30 @@ export default function Home() {
         </thead>
 
         <tbody>
-          {results.map((r, i) => {
-            const domain = new URL(r.url).hostname;
+          {results.map((r, i) => (
+            <tr key={i}>
+              <td>{r.position}</td>
+              <td>{r.domain}</td>
+              <td><a href={r.url} target="_blank">link</a></td>
+              <td>{r.title}</td>
 
-            return (
-              <tr key={i}>
-                <td>{i + 1}</td>
-                <td>{domain}</td>
+              <td>{r.dr}</td>
+              <td>{r.traffic}</td>
+              <td>{r.keywords}</td>
 
-                <td>
-                  <a href={r.url} target="_blank" style={{ color: '#4ea1ff' }}>
-                    link
-                  </a>
-                </td>
+              <td style={{ color: color(r.lcp, 2.5, 4) }}>
+                {formatMs(r.lcp)}
+              </td>
 
-                <td>{r.title}</td>
+              <td style={{ color: color(r.inp, 200, 500) }}>
+                {r.inp ? r.inp + 'ms' : '-'}
+              </td>
 
-                {/* ✅ DATA */}
-                <td style={{ color: '#00ffcc' }}>{r.traffic}</td>
-                <td style={{ color: '#00ffcc' }}>{r.keywords}</td>
-
-                {/* ✅ COLORS */}
-                <td style={{ color: r.lcp > 2500 ? 'red' : '#00ffcc' }}>
-                  {r.lcp}
-                </td>
-
-                <td style={{ color: r.inp > 200 ? 'orange' : '#00ffcc' }}>
-                  {r.inp}
-                </td>
-
-                <td style={{ color: r.cls > 0.1 ? 'red' : '#00ffcc' }}>
-                  {r.cls}
-                </td>
-              </tr>
-            );
-          })}
+              <td style={{ color: color(r.cls, 0.1, 0.25) }}>
+                {r.cls ?? '-'}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
