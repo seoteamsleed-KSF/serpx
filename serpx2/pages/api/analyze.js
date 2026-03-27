@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         let inp = null;
         let cls = null;
 
-        // 🔹 CRUX (REAL DATA)
+        // 🔹 CRUX (real data)
         try {
           const crux = await fetch(
             `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
@@ -43,30 +43,29 @@ export default async function handler(req, res) {
           const data = await crux.json();
           const m = data.record?.metrics || {};
 
-          lcp = m.largest_contentful_paint?.percentiles?.p75 || null;
-          inp = m.interaction_to_next_paint?.percentiles?.p75 || null;
-          cls = m.cumulative_layout_shift?.percentiles?.p75 || null;
+          lcp = m.largest_contentful_paint?.percentiles?.p75 ?? null;
+          inp = m.interaction_to_next_paint?.percentiles?.p75 ?? null;
+          cls = m.cumulative_layout_shift?.percentiles?.p75 ?? null;
 
         } catch {}
 
-        // 🔥 ALWAYS fallback PSI (όχι μόνο αν cls null)
+        // 🔥 PSI fallback (πάντα)
         try {
           const psi = await fetch(
             `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
           );
 
           const psiData = await psi.json();
-
           const audits = psiData.lighthouseResult?.audits || {};
 
-          if (!lcp)
-            lcp = audits['largest-contentful-paint']?.numericValue || null;
+          if (lcp === null)
+            lcp = audits['largest-contentful-paint']?.numericValue ?? null;
 
-          if (!inp)
-            inp = audits['interactive']?.numericValue || null;
+          if (inp === null)
+            inp = audits['interactive']?.numericValue ?? null;
 
-          if (!cls)
-            cls = audits['cumulative-layout-shift']?.numericValue || null;
+          if (cls === null)
+            cls = audits['cumulative-layout-shift']?.numericValue ?? null;
 
         } catch {}
 
