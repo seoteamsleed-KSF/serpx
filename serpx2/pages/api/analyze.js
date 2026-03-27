@@ -2,57 +2,39 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const { keyword } = req.body || {};
-  if (!keyword?.trim()) {
-    return res.status(400).json({ error: 'keyword required' });
-  }
+  if (!keyword) return res.status(400).json({ error: 'keyword required' });
 
   const SERPER_KEY = process.env.SERPER_API_KEY;
   const CRUX_KEY = process.env.CRUX_API_KEY;
-
-  if (!SERPER_KEY) return res.status(500).json({ error: 'SERPER_API_KEY missing' });
-  if (!CRUX_KEY) return res.status(500).json({ error: 'CRUX_API_KEY missing' });
+  const PSI_KEY = process.env.PSI_API_KEY;
 
   try {
-    // ✅ SERPER
+    // 1️⃣ SERP
     const serpRes = await fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: {
         "X-API-KEY": SERPER_KEY,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        q: keyword,
-        gl: "gr",
-        num: 10
-      })
+      body: JSON.stringify({ q: keyword, gl: "gr", num: 10 })
     });
 
-    const serpData = await serpRes.json();
+    const serp = await serpRes.json();
 
-    // ✅ MOCK DR (μέχρι να βάλουμε provider)
-    function getDR() {
-      return 0;
-    }
+    const results = await Promise.all(
+      (serp.organic || []).map(async (r, i) => {
 
-    const positions = (serpData.organic || []).map((r, i) => ({
-      position: i + 1,
-      url: r.link,
-      title: r.title,
-      domain_rating: getDR(),
-      refdomains: 0
-    }));
+        let lcp, inp, cls;
 
-    // ✅ CRUX (URL LEVEL FIX)
-    const cruxData = await Promise.all(
-      positions.map(async (p) => {
+        // 2️⃣ CRUX
         try {
-          const r = await fetch(
+          const crux = await fetch(
             `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                url: p.url, // 🔥 FIX εδώ (όχι origin)
+                url: r.link,
                 formFactor: "PHONE",
                 metrics: [
                   "largest_contentful_paint",
@@ -63,31 +45,43 @@ export default async function handler(req, res) {
             }
           );
 
-          if (!r.ok) return { position: p.position };
+          const data = await crux.json();
+          const m = data.record?.metrics || {};
 
-          const d = await r.json();
-          const m = d.record?.metrics || {};
+          lcp = m.largest_contentful_paint?.percentiles?.p75;
+          inp = m.interaction_to_next_paint?.percentiles?.p75;
+          cls = m.cumulative_layout_shift?.percentiles?.p75;
 
-          return {
-            position: p.position,
-            lcp: m.largest_contentful_paint?.percentiles?.p75,
-            inp: m.interaction_to_next_paint?.percentiles?.p75,
-            cls: m.cumulative_layout_shift?.percentiles?.p75
-          };
-        } catch {
-          return { position: p.position };
+        } catch {}
+
+        // 3️⃣ FALLBACK CLS (PSI)
+        if (!cls && PSI_KEY) {
+          try {
+            const psi = await fetch(
+              `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
+            );
+
+            const psiData = await psi.json();
+
+            const labCLS =
+              psiData.lighthouseResult?.audits?.['cumulative-layout-shift']?.numericValue;
+
+            if (labCLS) cls = labCLS;
+
+          } catch {}
         }
+
+        return {
+          position: i + 1,
+          url: r.link,
+          title: r.title,
+          domain_rating: 0,
+          lcp,
+          inp,
+          cls
+        };
       })
     );
-
-    const cruxMap = Object.fromEntries(cruxData.map(c => [c.position, c]));
-
-    const results = positions.map(p => ({
-      ...p,
-      lcp: cruxMap[p.position]?.lcp,
-      inp: cruxMap[p.position]?.inp,
-      cls: cruxMap[p.position]?.cls
-    }));
 
     return res.status(200).json({ results });
 
