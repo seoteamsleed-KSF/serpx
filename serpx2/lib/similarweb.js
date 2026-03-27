@@ -12,34 +12,27 @@ export async function getSimilarwebData(domain) {
 
     // KEYWORDS
     const keywordsRes = await fetch(
-      `https://api.similarweb.com/v1/website/${domain}/search/organic?api_key=${API_KEY}&limit=1`
+      `https://api.similarweb.com/v4/website-analysis/keywords?domain=${domain}&api_key=${API_KEY}`
     );
 
     const keywordsData = await keywordsRes.json();
-    const keywords = keywordsData.searches?.length || null;
+    const keywords = keywordsData?.meta?.total_results || null;
 
-    // AUTHORITY (DTS σαν DR)
+    // GLOBAL RANK
     const rankRes = await fetch(
       `https://api.similarweb.com/v1/website/${domain}/global-rank/global-rank?api_key=${API_KEY}`
     );
 
     const rankData = await rankRes.json();
-
-    // fake DR από rank (inverse scaling)
-    let dr = null;
-    if (rankData.global_rank?.rank) {
-      const r = rankData.global_rank.rank;
-      dr = Math.max(1, 100 - Math.log10(r) * 10);
-      dr = Math.round(dr);
-    }
+    const rank = rankData.global_rank?.rank || null;
 
     return {
-      dr: dr || "-",
+      dr: rank || "-",        // 👉 rename later στο UI
       traffic: visits || "-",
       keywords: keywords || "-"
     };
 
-  } catch (e) {
+  } catch {
     return {
       dr: "-",
       traffic: "-",
