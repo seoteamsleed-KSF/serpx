@@ -1,26 +1,16 @@
 import { useState } from 'react';
 
-<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-  
-  <h1>SLEED SEO: SERP Analyzer</h1>
-
-  <img 
-    src="https://app.linq.co/_next/image?url=https%3A%2F%2Fcollege-link-bucket.fra1.digitaloceanspaces.com%2Femployer%2Fuploads%2Fimages%2Fcompany_profile%2FSEDPQUtrCt20.png&w=3840&q=75"
-    style={{ height: 40 }}
-  />
-
-</div>
-
 function format(v, type) {
-  if (typeof v !== 'number') return 'N/A';
+  if (!v) return 'N/A';
+
   if (type === 'lcp') return (v / 1000).toFixed(2) + 's';
   if (type === 'cls') return v.toFixed(3);
+
   return Math.round(v) + 'ms';
 }
 
-// 🔥 highlight logic
 function getColor(type, v) {
-  if (typeof v !== 'number') return '#888';
+  if (!v) return '#888';
 
   if (type === 'lcp') {
     if (v <= 2500) return '#00d4aa';
@@ -47,8 +37,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   async function analyze() {
-    if (!keyword.trim()) return;
-
     setLoading(true);
     setResults([]);
 
@@ -65,14 +53,23 @@ export default function Home() {
 
   return (
     <div style={{ padding: 40, background: '#0a0a0f', minHeight: '100vh', color: '#fff' }}>
-      
-      <h1 style={{ marginBottom: 20 }}>SERP·X</h1>
 
-      <div style={{ marginBottom: 20 }}>
+      {/* HEADER */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>SLEED SEO: SERP Analyzer</h1>
+
+        <img
+          src="https://app.linq.co/_next/image?url=https%3A%2F%2Fcollege-link-bucket.fra1.digitaloceanspaces.com%2Femployer%2Fuploads%2Fimages%2Fcompany_profile%2FSEDPQUtrCt20.png&w=3840&q=75"
+          style={{ height: 50 }}
+        />
+      </div>
+
+      {/* INPUT */}
+      <div style={{ marginTop: 20 }}>
         <input
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
-          placeholder="keyword"
+          placeholder="Enter keyword"
           style={{ padding: 10, width: 300 }}
         />
         <button onClick={analyze} style={{ marginLeft: 10 }}>
@@ -80,14 +77,12 @@ export default function Home() {
         </button>
       </div>
 
-      {loading && (
-        <div style={{ marginTop: 20 }}>
-          🔄 Fetching SERP + CWV...
-        </div>
-      )}
+      {/* LOADING */}
+      {loading && <div style={{ marginTop: 20 }}>🔄 Running analysis...</div>}
 
+      {/* TABLE */}
       {!loading && results.length > 0 && (
-        <table style={{ width: '100%', textAlign: 'center', borderCollapse: 'collapse' }}>
+        <table style={{ width: '100%', marginTop: 30, textAlign: 'center' }}>
           <thead>
             <tr>
               <th>#</th>
@@ -103,9 +98,8 @@ export default function Home() {
 
           <tbody>
             {results.map((r, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid #222' }}>
+              <tr key={i}>
                 <td>{r.position}</td>
-
                 <td>{new URL(r.url).hostname}</td>
 
                 <td>
@@ -114,9 +108,7 @@ export default function Home() {
                   </a>
                 </td>
 
-                <td style={{ maxWidth: 300 }}>
-                  {r.title}
-                </td>
+                <td style={{ maxWidth: 300 }}>{r.title}</td>
 
                 <td>{r.domain_rating}</td>
 
