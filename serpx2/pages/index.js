@@ -7,6 +7,29 @@ function format(v, type) {
   return Math.round(v) + 'ms';
 }
 
+// 🔥 highlight logic
+function getColor(type, v) {
+  if (typeof v !== 'number') return '#888';
+
+  if (type === 'lcp') {
+    if (v <= 2500) return '#00d4aa';
+    if (v <= 4000) return '#ffaa00';
+    return '#ff4d6d';
+  }
+
+  if (type === 'inp') {
+    if (v <= 200) return '#00d4aa';
+    if (v <= 500) return '#ffaa00';
+    return '#ff4d6d';
+  }
+
+  if (type === 'cls') {
+    if (v <= 0.1) return '#00d4aa';
+    if (v <= 0.25) return '#ffaa00';
+    return '#ff4d6d';
+  }
+}
+
 export default function Home() {
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState([]);
@@ -18,26 +41,21 @@ export default function Home() {
     setLoading(true);
     setResults([]);
 
-    try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword })
-      });
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword })
+    });
 
-      const data = await res.json();
-      setResults(data.results || []);
-    } catch (e) {
-      console.error(e);
-    }
-
+    const data = await res.json();
+    setResults(data.results || []);
     setLoading(false);
   }
 
   return (
     <div style={{ padding: 40, background: '#0a0a0f', minHeight: '100vh', color: '#fff' }}>
       
-      <h1>SERP·X</h1>
+      <h1 style={{ marginBottom: 20 }}>SERP·X</h1>
 
       <div style={{ marginBottom: 20 }}>
         <input
@@ -51,7 +69,11 @@ export default function Home() {
         </button>
       </div>
 
-      {loading && <div>Loading results...</div>}
+      {loading && (
+        <div style={{ marginTop: 20 }}>
+          🔄 Fetching SERP + CWV...
+        </div>
+      )}
 
       {!loading && results.length > 0 && (
         <table style={{ width: '100%', textAlign: 'center', borderCollapse: 'collapse' }}>
@@ -81,13 +103,23 @@ export default function Home() {
                   </a>
                 </td>
 
-                <td>{r.title}</td>
+                <td style={{ maxWidth: 300 }}>
+                  {r.title}
+                </td>
 
                 <td>{r.domain_rating}</td>
 
-                <td>{format(r.lcp, 'lcp')}</td>
-                <td>{format(r.inp, 'inp')}</td>
-                <td>{format(r.cls, 'cls')}</td>
+                <td style={{ color: getColor('lcp', r.lcp) }}>
+                  {format(r.lcp, 'lcp')}
+                </td>
+
+                <td style={{ color: getColor('inp', r.inp) }}>
+                  {format(r.inp, 'inp')}
+                </td>
+
+                <td style={{ color: getColor('cls', r.cls) }}>
+                  {format(r.cls, 'cls')}
+                </td>
               </tr>
             ))}
           </tbody>
