@@ -1,5 +1,5 @@
-import { getAhrefsData } from '../../lib/ahrefs'
 import { getSimilarwebData } from '../../lib/similarweb'
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -70,7 +70,6 @@ export default async function handler(req, res) {
 
       } catch {}
 
-      // SAFE NUMBERS
       lcp = Number(lcp);
       inp = Number(inp);
       cls = Number(cls);
@@ -79,20 +78,20 @@ export default async function handler(req, res) {
       if (isNaN(inp)) inp = null;
       if (isNaN(cls)) cls = null;
 
-      // 🔥 AHREFS SAFE (no crash)
+      // ✅ SIMILARWEB
       let dr = "-";
       let traffic = "-";
       let keywords = "-";
 
       try {
         const domain = new URL(r.link).hostname.replace('www.', '');
-        const ahrefs = await getAhrefsData(domain);
+        const sw = await getSimilarwebData(domain);
 
-        dr = ahrefs.dr;
-        traffic = ahrefs.traffic;
-        keywords = ahrefs.keywords;
+        dr = sw.dr;
+        traffic = sw.traffic;
+        keywords = sw.keywords;
 
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 300));
       } catch {}
 
       results.push({
