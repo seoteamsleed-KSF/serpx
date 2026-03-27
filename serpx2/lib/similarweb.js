@@ -8,21 +8,25 @@ export async function getSimilarwebData(domain) {
 
     const data = await res.json();
 
-    // DEBUG (θα δεις αν έρχεται data)
-    console.log("SW:", domain, data);
+    const visits = data?.data?.[0]?.visits;
 
-    const visits = data.visits?.[0]?.visits;
+    // 🔥 fallback (αν δεν έχει data)
+    if (!visits) {
+      return {
+        traffic: "N/A",
+        keywords: "N/A"
+      };
+    }
 
     return {
-      traffic: visits || "-",
-      keywords: visits ? Math.round(visits / 8) : "-"
+      traffic: Math.round(visits),
+      keywords: Math.round(visits / 8)
     };
 
-  } catch (e) {
-    console.log("SW ERROR:", e);
+  } catch {
     return {
-      traffic: "-",
-      keywords: "-"
+      traffic: "N/A",
+      keywords: "N/A"
     };
   }
 }
