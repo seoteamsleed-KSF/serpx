@@ -12,7 +12,8 @@ export default async function handler(req, res) {
 
   try {
     // 1. Ahrefs SERP — GET with query params
-    const url = new URL('https://api.ahrefs.com/v3/serp-overview');
+const url = new URL('https://api.ahrefs.com/v3/serp/overview');
+
     url.searchParams.set('keyword', keyword.trim());
     url.searchParams.set('country', 'gr');
     url.searchParams.set('select', 'position,url,title,domain_rating,refdomains');
