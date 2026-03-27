@@ -1,20 +1,15 @@
 import { getAhrefsData } from '../../lib/ahrefs'
 import { getSimilarwebData } from '../../lib/similarweb'
 
-const fetchWithTimeout = async (url, options = {}, timeout = 5000) => {
-  const controller = new AbortController()
-  const id = setTimeout(() => controller.abort(), timeout)
-
+const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
   try {
     const res = await fetch(url, {
       ...options,
-      signal: controller.signal
+      signal: AbortSignal.timeout(timeout)
     })
     return res
-  } catch (e) {
+  } catch {
     return null
-  } finally {
-    clearTimeout(id)
   }
 }
 
@@ -46,27 +41,7 @@ export default async function handler(req, res) {
         let inp = null
         let cls = null
 
-        // CRUX
-        try {
-          const crux = await fetchWithTimeout(
-            `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ url: r.link, formFactor: "PHONE" })
-            }
-          )
-
-          const data = await crux?.json()
-          const m = data?.record?.metrics || {}
-
-          lcp = m.largest_contentful_paint?.percentiles?.p75 ?? null
-          inp = m.interaction_to_next_paint?.percentiles?.p75 ?? null
-          cls = m.cumulative_layout_shift?.percentiles?.p75 ?? null
-
-        } catch {}
-
-        // PSI fallback
+        // PSI ONLY (σταθερό)
         try {
           const psi = await fetchWithTimeout(
             `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
@@ -75,24 +50,21 @@ export default async function handler(req, res) {
           const psiData = await psi?.json()
           const audits = psiData?.lighthouseResult?.audits || {}
 
-          if (lcp === null)
-            lcp = audits['largest-contentful-paint']?.numericValue ?? null
-
-          if (inp === null)
-            inp = audits['interactive']?.numericValue ?? null
-
-          if (cls === null)
-            cls = audits['cumulative-layout-shift']?.numericValue ?? null
+          lcp = audits['largest-contentful-paint']?.numericValue ?? null
+          inp = audits['interactive']?.numericValue ?? null
+          cls = audits['cumulative-layout-shift']?.numericValue ?? null
 
         } catch {}
 
-        lcp = Number(lcp)
-        inp = Number(inp)
-        cls = Number(cls)
+        // FORMAT
+        if (lcp) lcp = (lcp / 1000).toFixed(2) + 's'
+        else lcp = "-"
 
-        if (isNaN(lcp)) lcp = null
-        if (isNaN(inp)) inp = null
-        if (isNaN(cls)) cls = null
+        if (inp) inp = Math.round(inp) + 'ms'
+        else inp = "-"
+
+        if (cls !== null) cls = Number(cls).toFixed(2)
+        else cls = "-"
 
         // AHREFS
         let dr = "-"
@@ -108,16 +80,13 @@ export default async function handler(req, res) {
           keywords = ahrefs?.keywords ?? "-"
         } catch {}
 
-        // SIMILARWEB (fallback)
+        // SIMILARWEB fallback
         try {
           const domain = new URL(r.link).hostname.replace('www.', '')
           const sw = await getSimilarwebData(domain)
 
-          if (traffic === "-" || traffic === "N/A")
-            traffic = sw?.traffic ?? "-"
-
-          if (keywords === "-" || keywords === "N/A")
-            keywords = sw?.keywords ?? "-"
+          if (traffic === "-") traffic = sw?.traffic ?? "-"
+          if (keywords === "-") keywords = sw?.keywords ?? "-"
         } catch {}
 
         return {
