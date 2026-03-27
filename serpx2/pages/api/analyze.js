@@ -21,91 +21,85 @@ export default async function handler(req, res) {
 
     const serp = await serpRes.json();
 
-    const results = [];
+    const results = await Promise.all(
+      (serp.organic || []).map(async (r, i) => {
 
-    for (let i = 0; i < (serp.organic || []).length; i++) {
-      const r = serp.organic[i];
+        let lcp = null;
+        let inp = null;
+        let cls = null;
 
-      let lcp = null;
-      let inp = null;
-      let cls = null;
+        // CRUX
+        try {
+          const crux = await fetch(
+            `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: r.link, formFactor: "PHONE" })
+            }
+          );
 
-      // CRUX
-      try {
-        const crux = await fetch(
-          `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${CRUX_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: r.link, formFactor: "PHONE" })
-          }
-        );
+          const data = await crux.json();
+          const m = data.record?.metrics || {};
 
-        const data = await crux.json();
-        const m = data.record?.metrics || {};
+          lcp = m.largest_contentful_paint?.percentiles?.p75 ?? null;
+          inp = m.interaction_to_next_paint?.percentiles?.p75 ?? null;
+          cls = m.cumulative_layout_shift?.percentiles?.p75 ?? null;
 
-        lcp = m.largest_contentful_paint?.percentiles?.p75 ?? null;
-        inp = m.interaction_to_next_paint?.percentiles?.p75 ?? null;
-        cls = m.cumulative_layout_shift?.percentiles?.p75 ?? null;
+        } catch {}
 
-      } catch {}
+        // PSI fallback
+        try {
+          const psi = await fetch(
+            `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
+          );
 
-      // PSI fallback
-      try {
-        const psi = await fetch(
-          `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(r.link)}&key=${PSI_KEY}&strategy=mobile`
-        );
+          const psiData = await psi.json();
+          const audits = psiData.lighthouseResult?.audits || {};
 
-        const psiData = await psi.json();
-        const audits = psiData.lighthouseResult?.audits || {};
+          if (lcp === null)
+            lcp = audits['largest-contentful-paint']?.numericValue ?? null;
 
-        if (lcp === null)
-          lcp = audits['largest-contentful-paint']?.numericValue ?? null;
+          if (inp === null)
+            inp = audits['interactive']?.numericValue ?? null;
 
-        if (inp === null)
-          inp = audits['interactive']?.numericValue ?? null;
+          if (cls === null)
+            cls = audits['cumulative-layout-shift']?.numericValue ?? null;
 
-        if (cls === null)
-          cls = audits['cumulative-layout-shift']?.numericValue ?? null;
+        } catch {}
 
-      } catch {}
+        lcp = Number(lcp);
+        inp = Number(inp);
+        cls = Number(cls);
 
-      lcp = Number(lcp);
-      inp = Number(inp);
-      cls = Number(cls);
+        if (isNaN(lcp)) lcp = null;
+        if (isNaN(inp)) inp = null;
+        if (isNaN(cls)) cls = null;
 
-      if (isNaN(lcp)) lcp = null;
-      if (isNaN(inp)) inp = null;
-      if (isNaN(cls)) cls = null;
+        // ✅ SIMILARWEB (FIXED DOMAIN + SAFE)
+        let traffic = "-";
+        let keywords = "-";
 
-      // ✅ SIMILARWEB
-      let dr = "-";
-      let traffic = "-";
-      let keywords = "-";
+        try {
+          const domain = new URL(r.link).hostname.replace('www.', '');
+          const sw = await getSimilarwebData(domain);
 
-      try {
-        const domain = new URL(r.link).hostname.replace('www.', '');
-        const sw = await getSimilarwebData(domain);
+          traffic = sw.traffic || "-";
+          keywords = sw.keywords || "-";
+        } catch {}
 
-        dr = sw.dr;
-        traffic = sw.traffic;
-        keywords = sw.keywords;
-
-        await new Promise(r => setTimeout(r, 300));
-      } catch {}
-
-      results.push({
-        position: i + 1,
-        url: r.link,
-        title: r.title,
-        dr,
-        traffic,
-        keywords,
-        lcp,
-        inp,
-        cls
-      });
-    }
+        return {
+          position: i + 1,
+          url: r.link,
+          title: r.title,
+          traffic,
+          keywords,
+          lcp,
+          inp,
+          cls
+        };
+      })
+    );
 
     res.status(200).json({ results });
 
