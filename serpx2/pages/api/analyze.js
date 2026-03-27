@@ -1,3 +1,5 @@
+import { getAhrefsData } from '../../lib/ahrefs'
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -66,7 +68,7 @@ export default async function handler(req, res) {
 
         } catch {}
 
-        // 🔥 SAFE NUMBERS
+        // SAFE NUMBERS
         lcp = Number(lcp);
         inp = Number(inp);
         cls = Number(cls);
@@ -75,11 +77,20 @@ export default async function handler(req, res) {
         if (isNaN(inp)) inp = null;
         if (isNaN(cls)) cls = null;
 
+        // 🔥 AHREFS DATA
+        const domain = new URL(r.link).hostname.replace('www.', '')
+        const ahrefs = await getAhrefsData(domain)
+
+        await new Promise(r => setTimeout(r, 700))
+
         return {
           position: i + 1,
           url: r.link,
           title: r.title,
-          domain_rating: "-",
+          domain,
+          dr: ahrefs.dr,
+          traffic: ahrefs.traffic,
+          keywords: ahrefs.keywords,
           lcp,
           inp,
           cls
