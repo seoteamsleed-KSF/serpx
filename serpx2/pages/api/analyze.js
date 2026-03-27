@@ -29,35 +29,20 @@ export default async function handler(req, res) {
 
     const serpData = await serpRes.json();
 
-    // ✅ FREE DR (Moz-style proxy)
-    async function getDA(domain) {
-      try {
-        const r = await fetch(`https://api.allorigins.win/raw?url=https://api.seoreviewtools.com/website-authority-checker/?domain=${domain}`);
-        const d = await r.json();
-        return d?.domain_authority || 0;
-      } catch {
-        return 0;
-      }
+    // ✅ MOCK DR (μέχρι να βάλουμε provider)
+    function getDR() {
+      return 0;
     }
 
-    // ✅ BUILD RESULTS
-    const positions = await Promise.all(
-      (serpData.organic || []).map(async (r, i) => {
-        const domain = new URL(r.link).hostname.replace("www.", "");
+    const positions = (serpData.organic || []).map((r, i) => ({
+      position: i + 1,
+      url: r.link,
+      title: r.title,
+      domain_rating: getDR(),
+      refdomains: 0
+    }));
 
-        const da = await getDA(domain);
-
-        return {
-          position: i + 1,
-          url: r.link,
-          title: r.title,
-          domain_rating: da,
-          refdomains: 0
-        };
-      })
-    );
-
-    // ✅ CRUX
+    // ✅ CRUX (URL LEVEL FIX)
     const cruxData = await Promise.all(
       positions.map(async (p) => {
         try {
@@ -67,7 +52,7 @@ export default async function handler(req, res) {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                origin: new URL(p.url).origin,
+                url: p.url, // 🔥 FIX εδώ (όχι origin)
                 formFactor: "PHONE",
                 metrics: [
                   "largest_contentful_paint",
