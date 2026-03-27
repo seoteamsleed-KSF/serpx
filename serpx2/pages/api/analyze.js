@@ -86,7 +86,7 @@ export default async function handler(req, res) {
 
         } catch {}
 
-        // 🔥 FIX NaN + FORMAT (ΤΟ PROBLEM ΗΤΑΝ ΕΔΩ)
+        // 🔥 SAFE NUMBERS (ΑΥΤΟ ΗΤΑΝ ΤΟ WORKING PART)
         lcp = Number(lcp)
         inp = Number(inp)
         cls = Number(cls)
@@ -95,6 +95,7 @@ export default async function handler(req, res) {
         if (isNaN(inp)) inp = null
         if (isNaN(cls)) cls = null
 
+        // ✅ FORMAT (1 φορά μόνο)
         lcp = lcp ? (lcp / 1000).toFixed(2) + 's' : "-"
         inp = inp ? Math.round(inp) + 'ms' : "-"
         cls = cls !== null ? cls.toFixed(2) : "-"
